@@ -9,12 +9,12 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
 import ianto.solutions.realmexample.models.Conversation;
 import ianto.solutions.realmexample.models.Message;
+import ianto.solutions.realmexample.models.User;
 import io.realm.Realm;
 import retrofit.Callback;
 import retrofit.ErrorHandler;
@@ -23,15 +23,14 @@ import retrofit.RestAdapter;
 import retrofit.RetrofitError;
 import retrofit.android.MainThreadExecutor;
 import retrofit.client.OkClient;
+import retrofit.client.Response;
 import retrofit.converter.GsonConverter;
-import retrofit.http.Body;
 import retrofit.http.GET;
-import retrofit.http.PUT;
-import retrofit.http.Path;
 import timber.log.Timber;
 
 public class WebHandler {
-    private static final String SERVER_ENDPOINT = "https://localhost:8080";
+    public static final int USER_ID = 0;
+    private static final String SERVER_ENDPOINT = "http://76.171.116.76:8080";
     private static RestAdapter restAdapter;
     private static WebHandlerInterface webHandlerInterface;
     private static SimpleDateFormat rubyDateTimeFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.PRC);
@@ -91,64 +90,95 @@ public class WebHandler {
         return gson;
     }
 
-    public static void archiveConversation(long conversationId, Callback<ConversationActionWrapper> callback) {
-        webHandlerInterface.archiveConversation(conversationId, new TimeStampObj(new Date()), callback);
+    public static void updateUsers() {
+        Callback<List<User>> callback = new Callback<List<User>>() {
+            @Override
+            public void success(List<User> users, Response response) {
+                Realm realm = Realm.getDefaultInstance();
+                realm.beginTransaction();
+                realm.copyToRealmOrUpdate(users);
+                realm.commitTransaction();
+            }
+
+            @Override
+            public void failure(RetrofitError error) {
+                Timber.e(error);
+            }
+        };
+
+        webHandlerInterface.getAllUsers(callback);
     }
 
-    public static void reportConversation(long conversationId, Callback<ConversationActionWrapper> callback) {
-        webHandlerInterface.reportConversation(conversationId, new TimeStampObj(new Date()), callback);
+    public static void updateConversations() {
+        Callback<List<Conversation>> callback = new Callback<List<Conversation>>() {
+            @Override
+            public void success(List<Conversation> conversations, Response response) {
+                Realm realm = Realm.getDefaultInstance();
+                realm.beginTransaction();
+                realm.copyToRealmOrUpdate(conversations);
+                realm.commitTransaction();
+            }
+
+            @Override
+            public void failure(RetrofitError error) {
+                Timber.e(error);
+            }
+        };
+
+        webHandlerInterface.getAllConversations(callback);
     }
 
-    public static void unArchiveConversation(long conversationId, Callback<ConversationActionWrapper> callback) {
-        webHandlerInterface.unArchiveConversation(conversationId, new TimeStampObj(new Date()), callback);
+    public static void updateMessages() {
+        Callback<List<Message>> callback = new Callback<List<Message>>() {
+            @Override
+            public void success(List<Message> messages, Response response) {
+                Realm realm = Realm.getDefaultInstance();
+                realm.beginTransaction();
+                realm.copyToRealmOrUpdate(messages);
+                realm.commitTransaction();
+            }
+
+            @Override
+            public void failure(RetrofitError error) {
+                Timber.e(error);
+            }
+        };
+
+        webHandlerInterface.getAllMessages(callback);
     }
 
-    public static void readConversation(long conversationId, Callback<ConversationActionWrapper> callback) {
-        webHandlerInterface.readConversation(conversationId, new TimeStampObj(new Date()), callback);
-    }
-
-    public static void getConversations(final Callback<ConversationListWrapper> callback) {
-        Realm realm = Realm.getDefaultInstance();
-        final Date updatedAt = realm.where(Conversation.class).maximumDate("updatedAt");
-        if (updatedAt == null || updatedAt.before(new Date(1))) {
-            webHandlerInterface.getAllConversations(callback);
-        } else {
-            String dateString = rubyDateTimeFormat.format(updatedAt);
-            webHandlerInterface.getNewConversations(dateString, callback);
-        }
-    }
-
-    public static void getMessages(Callback<MessageListWrapper> callback) {
-        Realm realm = Realm.getDefaultInstance();
-        final Date updatedAt = realm.where(Message.class).maximumDate("updatedAt");
-        if (updatedAt == null || updatedAt.before(new Date(1))) {
-            webHandlerInterface.getAllMessages(callback);
-        } else {
-            Timber.w("LastMessageDate", updatedAt);
-            String dateString = rubyDateTimeFormat.format(updatedAt);
-            webHandlerInterface.getNewMessages(dateString, callback);
-        }
-        realm.close();
-    }
+//    public static void getConversations(final Callback<ConversationListWrapper> callback) {
+//        Realm realm = Realm.getDefaultInstance();
+//        final Date updatedAt = realm.where(Conversation.class).maximumDate("updatedAt");
+//        if (updatedAt == null || updatedAt.before(new Date(1))) {
+//            webHandlerInterface.getAllConversations(callback);
+//        } else {
+//            String dateString = rubyDateTimeFormat.format(updatedAt);
+//            webHandlerInterface.getNewConversations(dateString, callback);
+//        }
+//    }
+//
+//    public static void getMessages(Callback<MessageListWrapper> callback) {
+//        Realm realm = Realm.getDefaultInstance();
+//        final Date updatedAt = realm.where(Message.class).maximumDate("updatedAt");
+//        if (updatedAt == null || updatedAt.before(new Date(1))) {
+//            webHandlerInterface.getAllMessages(callback);
+//        } else {
+//            Timber.w("LastMessageDate", updatedAt);
+//            String dateString = rubyDateTimeFormat.format(updatedAt);
+//            webHandlerInterface.getNewMessages(dateString, callback);
+//        }
+//        realm.close();
+//    }
 
     interface WebHandlerInterface {
-        @GET("/api/v2/conversations")
+        @GET("/user")
+        void getAllUsers(Callback<List<User>> callback);
+
+        @GET("/conversation")
         void getAllConversations(Callback<List<Conversation>> callback);
 
-        @GET("/api/v2/messages")
+        @GET("/message")
         void getAllMessages(Callback<List<Message>> callback);
-
-        @PUT("/api/v2/conversations/{conversationId}/report")
-        void reportConversation(@Path("conversationId") long conversationId, @Body TimeStampObj body, Callback<ConversationActionWrapper> callback);
-
-        @PUT("/api/v2/conversations/{conversationId}/archive")
-        void archiveConversation(@Path("conversationId") long conversationId, @Body TimeStampObj body, Callback<ConversationActionWrapper> callback);
-
-        @PUT("/api/v2/conversations/{conversationId}/unarchive")
-        void unArchiveConversation(@Path("conversationId") long conversationId, @Body TimeStampObj body, Callback<ConversationActionWrapper> callback);
-
-        @PUT("/api/v2/conversations/{conversationId}/read")
-        void readConversation(@Path("conversationId") long conversationId, @Body TimeStampObj timeStampObj, Callback<ConversationActionWrapper> callback);
-
     }
 }

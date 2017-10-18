@@ -2,53 +2,63 @@ package ianto.solutions.realmexample.activities;
 
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
-import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.Toolbar;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
 import android.view.View;
-import android.view.Menu;
-import android.view.MenuItem;
+import android.widget.TextView;
+
+import java.util.Locale;
 
 import ianto.solutions.realmexample.R;
+import ianto.solutions.realmexample.adapters.ConversationsAdapters;
+import ianto.solutions.realmexample.models.Conversation;
+import ianto.solutions.realmexample.models.Message;
+import ianto.solutions.realmexample.util.WebHandler;
+import io.realm.Realm;
+import io.realm.RealmChangeListener;
+import io.realm.RealmResults;
 
 public class ExampleActivity extends AppCompatActivity {
+    private Realm realm;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_example);
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
 
-        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
+        realm = Realm.getDefaultInstance();
+
+        WebHandler.updateUsers();
+
+        setContentView(R.layout.activity_example);
+        RecyclerView recyclerView = findViewById(R.id.conversations_recycler_view);
+
+        RealmResults<Conversation> conversations = realm.where(Conversation.class).findAll();
+        recyclerView.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false));
+        recyclerView.setAdapter(new ConversationsAdapters(this, conversations, true));
+
+        FloatingActionButton fab = findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
+                WebHandler.updateConversations();
+            }
+        });
+        final TextView text = findViewById(R.id.activity_message);
+        RealmResults<Message> unread = realm.where(Message.class).equalTo("unread", true).findAll();
+        text.setText(String.format(Locale.getDefault(), "Unread: %d", unread.size()));
+        unread.addChangeListener(new RealmChangeListener<RealmResults<Message>>() {
+            @Override
+            public void onChange(RealmResults<Message> messages) {
+                text.setText(String.format(Locale.getDefault(), "Unread: %d", messages.size()));
             }
         });
     }
 
     @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.menu_example, menu);
-        return true;
-    }
+    protected void onDestroy() {
+        realm.close();
+        super.onDestroy();
 
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
-
-        //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
-            return true;
-        }
-
-        return super.onOptionsItemSelected(item);
     }
 }
